@@ -2,8 +2,6 @@
 
 import cmd, sys, textwrap
 
-
-
 """
 Text Adventure Demo by Al Sweigart (al@inventwithpython.com)
 
@@ -26,7 +24,6 @@ but if you ever want to extend the game they can become burdensome to
 work with. But if you are starting out with a toy project, they're fine.
 """
 
-
 """
 First, we will create some data structures for our game world.
 
@@ -44,7 +41,6 @@ The town looks something like this:
         | smith   |    | Tower    /
         +---------+    +---------+
 """
-
 
 """
 These constant variables are used because if I mistype them, Python will
@@ -160,7 +156,7 @@ worldRooms = {
         UP: 'Magical Escalator to Nowhere',
         DOWN: 'Observation Deck',
         GROUND: []},
-    }
+}
 
 """
 This is the index of all possible items in the game world. Note that These
@@ -276,11 +272,12 @@ worldItems = {
         LONGDESC: 'The note reads, "When you are at a shop, you can type "list" to show what is for sale. "buy <item>" will add it to your inventory, or you can sell an item in your inventory with "sell <item>". (Currently, money is not implemented in this program.)',
         EDIBLE: True,
         DESCWORDS: ['howto', 'note', 'shop']},
-    }
+}
 
-location = 'Town Square' # start in town square
-inventory = ['README Note', 'Sword', 'Donut'] # start with blank inventory
+location = 'Town Square'  # start in town square
+inventory = ['README Note', 'Sword', 'Donut']  # start with blank inventory
 showFullExits = True
+
 
 def displayLocation(loc):
     """A helper function for displaying an area's description and exits."""
@@ -288,16 +285,16 @@ def displayLocation(loc):
     print(loc)
     print('=' * len(loc))
 
-    #print the room desc with textwrap
+    # print the room desc with textwrap
     print('\n'.join(textwrap.wrap(worldRooms[loc][DESC], SCREEN_WIDTH)))
 
-    #print all items on the ground
+    # print all items on the ground
     if len(worldRooms[loc][GROUND]) > 0:
         print()
         for item in worldRooms[loc][GROUND]:
             print(worldItems[item][GROUNDDESC])
 
-    #print all the exits
+    # print all the exits
     exits = []
     for direction in (NORTH, SOUTH, EAST, WEST, UP, DOWN):
         if direction in worldRooms[loc].keys():
@@ -310,6 +307,7 @@ def displayLocation(loc):
         else:
             print('Exits: %s' % ' '.join(exits))
 
+
 def moveDirection(direction):
     """A helper function that changes the location of the player"""
     global location
@@ -321,13 +319,15 @@ def moveDirection(direction):
     else:
         print('You cannot move in that direction')
 
+
 def getAllDescWords(itemList):
     """Returns a list of "descriptive words" for each item named in itemList."""
-    itemList = list(set(itemList)) # make itemList unique
+    itemList = list(set(itemList))  # make itemList unique
     descWords = []
     for item in itemList:
         descWords.extend(worldItems[item][DESCWORDS])
     return list(set(descWords))
+
 
 def getAllFirstDescWords(itemList):
     """Returns a list of the first "description word" in the list of
@@ -338,12 +338,14 @@ def getAllFirstDescWords(itemList):
         descWords.append(worldItems[item][DESCWORDS][0])
     return list(set(descWords))
 
+
 def getFirstItemMatchingDesc(desc, itemList):
     itemList = list(set(itemList))
     for item in itemList:
         if desc in worldItems[item][DESCWORDS]:
             return item
     return None
+
 
 def getAllItemsMatchingDesc(desc, itemList):
     itemList = list(set(itemList))
@@ -361,10 +363,10 @@ class TextAdventureCmd(cmd.Cmd):
     def default(selfself, arg):
         print('I do not understand that command. Type "help" for a list of commands.')
 
-    #A very simple quit command to terminate the program:
+    # A very simple quit command to terminate the program:
     def do_quit(selfself, arg):
         """Quit the game."""
-        return True # this exits the Cmd application loop in TextAdventureCmd.cmdloop()
+        return True  # this exits the Cmd application loop in TextAdventureCmd.cmdloop()
 
     def help_combat(selfself):
         print('Combat is not yet implemented.')
@@ -422,14 +424,14 @@ class TextAdventureCmd(cmd.Cmd):
             return
 
         # first get a count for each distinct item in the inventory
-        itemCount= {}
+        itemCount = {}
         for item in inventory:
             if item in itemCount.keys():
                 itemCount[item] += 1
             else:
                 itemCount[item] = 1
 
-        #get a list of items without duplicates:
+        # get a list of items without duplicates:
         print('Inventory: ')
         for item in set(inventory):
             if itemCount[item] > 1:
@@ -442,7 +444,7 @@ class TextAdventureCmd(cmd.Cmd):
     def do_take(selfself, arg):
         """Take an item from the ground."""
 
-        #put this value in a better named variable
+        # put this value in a better named variable
         itemToTake = arg.lower()
 
         if itemToTake == '':
@@ -451,14 +453,14 @@ class TextAdventureCmd(cmd.Cmd):
 
         cantTake = False
 
-        #get the item the player command asks for
+        # get the item the player command asks for
         for item in getAllItemsMatchingDesc(itemToTake, worldRooms[location][GROUND]):
             if worldItems[item].get(TAKEABLE, True) == False:
                 cantTake = True
-                continue #continue because another item could be named this
+                continue  # continue because another item could be named this
             print('You take %s.' % (worldItems[item][SHORTDESC]))
-            worldRooms[location][GROUND].remove(item) #remove from the ground
-            inventory.append(item) #add to player inv
+            worldRooms[location][GROUND].remove(item)  # remove from the ground
+            inventory.append(item)  # add to player inv
             return
 
         if cantTake:
@@ -469,52 +471,52 @@ class TextAdventureCmd(cmd.Cmd):
     def do_drop(self, arg):
         """Drop an item from your inventory on the ground."""
 
-        #better named variable
+        # better named variable
         itemToDrop = arg.lower()
 
-        #get a list of all desc words from inventory items
+        # get a list of all desc words from inventory items
         invDescWords = getAllDescWords(inventory)
 
-        #check if player doesnt have the item
+        # check if player doesnt have the item
         if itemToDrop not in invDescWords:
             print('You do not have "%s" in your inventory.' % (itemToDrop))
             return
 
-        #get the item from player command
+        # get the item from player command
         item = getFirstItemMatchingDesc(itemToDrop, inventory)
         if item != None:
             print('You drop %s.' % worldItems[item][SHORTDESC])
-            inventory.remove(item) #remove from inventory
-            worldRooms[location][GROUND].append(item) #add to the ground
+            inventory.remove(item)  # remove from inventory
+            worldRooms[location][GROUND].append(item)  # add to the ground
 
     def complete_take(self, text, line, begidx, endidx):
         possibleItems = []
         text = text.lower()
 
-        #if player typed take but no item name
+        # if player typed take but no item name
         if not text:
             return getAllFirstDescWords(worldRooms[location][GROUND])
 
-        #otherwise, get a list of all "description words" for ground items matching the command text so far
+        # otherwise, get a list of all "description words" for ground items matching the command text so far
         for item in list(set(worldRooms[location][GROUND])):
             if descWord in worldItems[item][DESCWORDS]:
                 if descWord.startswith(text) and worldItems[item].get(TAKEABLE, True):
                     possibleItems.append(descWord)
 
-        return list(set(possibleItems)) #make list unique
+        return list(set(possibleItems))  # make list unique
 
     def complete_drop(self, text, line, begidx, endidx):
         possibleItems = []
         itemToDrop = text.lower()
 
-        #get a list of all "description words" for each item in inventory
+        # get a list of all "description words" for each item in inventory
         invDescWords = getAllDescWords(inventory)
 
         for descWord in invDescWords:
             if line.startswith('drop %s' % (descWord)):
-                return [] #command is complete
+                return []  # command is complete
 
-            #if player only typed drop but no item
+            # if player only typed drop but no item
             if itemToDrop == '':
                 return getAllFirstDescWords(inventory)
 
@@ -523,7 +525,7 @@ class TextAdventureCmd(cmd.Cmd):
                 if descWord.startswith(text):
                     possibleItems.append(descWord)
 
-            return list(set(possibleItems)) # make unique list
+            return list(set(possibleItems))  # make unique list
 
 
 if __name__ == '__main__':
@@ -535,41 +537,3 @@ if __name__ == '__main__':
     displayLocation(location)
     TextAdventureCmd().cmdloop()
     print('Thanks for playing!')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

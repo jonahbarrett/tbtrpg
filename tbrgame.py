@@ -1,6 +1,6 @@
 #! python3
 
-import cmd, sys, textwrap
+import cmd, sys, textwrap, random
 
 """
 Text Adventure Demo by Al Sweigart (al@inventwithpython.com)
@@ -489,6 +489,238 @@ class TextAdventureCmd(cmd.Cmd):
             inventory.remove(item)  # remove from inventory
             worldRooms[location][GROUND].append(item)  # add to the ground
 
+    def do_look(self, arg):
+        """Look at an item, direction, or the area:
+        "look" - display the current area's description
+        "look <direction>" - display the description of the area in that direction
+        "look exits" - display the description of all adjacent areas
+        "look <item>" - display the description of an item on the ground or in your inventory"""
+
+        lookingAt = arg.lower()
+        if lookingAt == '':
+            # "look" will re-print the area description
+            displayLocation(location)
+            return
+
+        if lookingAt == 'exits':
+            for direction in (NORTH, SOUTH, EAST, WEST, UP, DOWN):
+                if direction in worldRooms[location]:
+                    print('%s: %s' % (direction.title(), worldRooms[location][direction]))
+            return
+
+        if lookingAt in ('north', 'west', 'east', 'south', 'up', 'down', 'n', 'w', 'e', 's', 'u', 'd'):
+            if lookingAt.startswith('n') and NORTH in worldRooms[location]:
+                print(worldRooms[location][NORTH])
+            elif lookingAt.startswith('w') and WEST in worldRooms[location]:
+                print(worldRooms[location][WEST])
+            elif lookingAt.startswith('e') and EAST in worldRooms[location]:
+                print(worldRooms[location][EAST])
+            elif lookingAt.startswith('s') and SOUTH in worldRooms[location]:
+                print(worldRooms[location][SOUTH])
+            elif lookingAt.startswith('u') and UP in worldRooms[location]:
+                print(worldRooms[location][UP])
+            elif lookingAt.startswith('d') and DOWN in worldRooms[location]:
+                print(worldRooms[location][DOWN])
+            else:
+                print('There is nothing in that direction.')
+            return
+
+        # see if the item being looked at is on the ground at this location
+        item = getFirstItemMatchingDesc(lookingAt, worldRooms[location][GROUND])
+        if item != None:
+            print('\n'.join(textwrap.wrap(worldItems[item][LONGDESC], SCREEN_WIDTH)))
+            return
+
+        # see if the item being looked at is in the inventory
+        item = getFirstItemMatchingDesc(lookingAt, inventory)
+        if item != None:
+            print('\n'.join(textwrap.wrap(worldItems[item][LONGDESC], SCREEN_WIDTH)))
+            return
+
+        print('You do not see that nearby.')
+
+    def do_list(self, arg):
+        """List the items for sale at the current location's shop. "list full" will show details of the items."""
+        if SHOP not in worldRooms[location]:
+            print('This is not a shop.')
+            return
+
+        arg = arg.lower()
+
+        print('For sale:')
+        for item in worldRooms[location][SHOP]:
+            print('  - %s' % (item))
+            if arg == 'full':
+                print('\n'.join(textwrap.wrap(worldItems[item][LONGDESC], SCREEN_WIDTH)))
+
+    def do_buy(self, arg):
+        """"buy <item>" - buy an item at the current location's shop."""
+        if SHOP not in worldRooms[location]:
+            print('This is not a shop.')
+            return
+
+        itemToBuy = arg.lower()
+
+        if itemToBuy == '':
+            print('Buy what? Type "list" or "list full" to see a list of items for sale.')
+            return
+
+        item = getFirstItemMatchingDesc(itemToBuy, worldRooms[location][SHOP])
+        if item != None:
+            # NOTE - If you wanted to implement money, here is where you would add
+            # code that checks if the player has enough, then deducts the price
+            # from their money.
+            print('You have purchased %s' % (worldItems[item][SHORTDESC]))
+            inventory.append(item)
+            return
+
+        print('"%s" is not sold here. Type "list" or "list full" to see a list of items for sale.' % (itemToBuy))
+
+    def complete_buy(self, text, line, begidx, endidx):
+        if SHOP not in worldRooms[location]:
+            return []
+
+        itemToBuy = text.lower()
+        possibleItems = []
+
+        # if the user has only typed "buy" but no item name:
+        if not itemToBuy:
+            return getAllFirstDescWords(worldRooms[location][SHOP])
+
+        # otherwise, get a list of all "description words" for shop items matching the command text so far:
+        for item in list(set(worldRooms[location][SHOP])):
+            for descWord in worldItems[item][DESCWORDS]:
+                if descWord.startswith(text):
+                    possibleItems.append(descWord)
+
+        return list(set(possibleItems))  # make list unique
+
+    def do_sell(self, arg):
+        """"sell <item>" - sell an item at the current location's shop."""
+        if SHOP not in worldRooms[location]:
+            print('This is not a shop.')
+            return
+
+        itemToSell = arg.lower()
+
+        if itemToSell == '':
+            print('Sell what? Type "inventory" or "inv" to see your inventory.')
+            return
+
+        for item in inventory:
+            if itemToSell in worldItems[item][DESCWORDS]:
+                # NOTE - If you wanted to implement money, here is where you would add
+                # code that gives the player money for selling the item.
+                print('You have sold %s' % (worldItems[item][SHORTDESC]))
+                inventory.remove(item)
+                return
+
+        print('You do not have "%s". Type "inventory" or "inv" to see your inventory.' % (itemToSell))
+
+    def do_eat(self, arg):
+        """"eat <item>" - eat an item in your inventory."""
+        itemToEat = arg.lower()
+
+        if itemToEat == '':
+            print('Eat what? Type "inventory" or "inv" to see your inventory.')
+            return
+
+        cantEat = False
+
+        for item in getAllItemsMatchingDesc(itemToEat, inventory):
+            if worldItems[item].get(EDIBLE, False) == False:
+                cantEat = True
+                continue  # there may be other items named this that you can eat, so we continue checking
+            # NOTE - If you wanted to implement hunger levels, here is where
+            # you would add code that changes the player's hunger level.
+            print('You eat %s' % (worldItems[item][SHORTDESC]))
+            inventory.remove(item)
+            return
+
+        if cantEat:
+            print('You cannot eat that.')
+        else:
+            print('You do not have "%s". Type "inventory" or "inv" to see your inventory.' % (itemToEat))
+
+    def complete_eat(self, text, line, begidx, endidx):
+        itemToEat = text.lower()
+        possibleItems = []
+
+        # if the user has only typed "eat" but no item name:
+        if itemToEat == '':
+            return getAllFirstDescWords(inventory)
+
+        # otherwise, get a list of all "description words" for edible inventory items matching the command text so far:
+        for item in list(set(inventory)):
+            for descWord in worldItems[item][DESCWORDS]:
+                if descWord.startswith(text) and worldItems[item].get(EDIBLE, False):
+                    possibleItems.append(descWord)
+
+        return list(set(possibleItems))  # make list unique
+
+    def complete_sell(self, text, line, begidx, endidx):
+        if SHOP not in worldRooms[location]:
+            return []
+
+        itemToSell = text.lower()
+        possibleItems = []
+
+        # if the user has only typed "sell" but no item name:
+        if not itemToSell:
+            return getAllFirstDescWords(inventory)
+
+        # otherwise, get a list of all "description words" for inventory items matching the command text so far:
+        for item in list(set(inventory)):
+            for descWord in worldItems[item][DESCWORDS]:
+                if descWord.startswith(text):
+                    possibleItems.append(descWord)
+
+        return list(set(possibleItems))  # make list unique
+
+    def complete_look(self, text, line, begidx, endidx):
+        possibleItems = []
+        lookingAt = text.lower()
+
+        # get a list of all "description words" for each item in the inventory
+        invDescWords = getAllDescWords(inventory)
+        groundDescWords = getAllDescWords(worldRooms[location][GROUND])
+        shopDescWords = getAllDescWords(worldRooms[location].get(SHOP, []))
+
+        for descWord in invDescWords + groundDescWords + shopDescWords + [NORTH, SOUTH, EAST, WEST, UP, DOWN]:
+            if line.startswith('look %s' % (descWord)):
+                return []  # command is complete
+
+        # if the user has only typed "look" but no item name, show all items on ground, shop and directions:
+        if lookingAt == '':
+            possibleItems.extend(getAllFirstDescWords(worldRooms[location][GROUND]))
+            possibleItems.extend(getAllFirstDescWords(worldRooms[location].get(SHOP, [])))
+            for direction in (NORTH, SOUTH, EAST, WEST, UP, DOWN):
+                if direction in worldRooms[location]:
+                    possibleItems.append(direction)
+            return list(set(possibleItems))  # make list unique
+
+        # otherwise, get a list of all "description words" for ground items matching the command text so far:
+        for descWord in groundDescWords:
+            if descWord.startswith(lookingAt):
+                possibleItems.append(descWord)
+
+        # otherwise, get a list of all "description words" for items for sale at the shop (if this is one):
+        for descWord in shopDescWords:
+            if descWord.startswith(lookingAt):
+                possibleItems.append(descWord)
+
+        # check for matching directions
+        for direction in (NORTH, SOUTH, EAST, WEST, UP, DOWN):
+            if direction.startswith(lookingAt):
+                possibleItems.append(direction)
+
+            # get a list of all "description words" for inventory items matching the command text so far:
+        for descWord in invDescWords:
+            if descWord.startswith(lookingAt):
+                possibleItems.append(descWord)
+
+        return list(set(possibleItems))  # make list unique
+
     def complete_take(self, text, line, begidx, endidx):
         possibleItems = []
         text = text.lower()
@@ -499,7 +731,7 @@ class TextAdventureCmd(cmd.Cmd):
 
         # otherwise, get a list of all "description words" for ground items matching the command text so far
         for item in list(set(worldRooms[location][GROUND])):
-            if descWord in worldItems[item][DESCWORDS]:
+            for descWord in worldItems[item][DESCWORDS]:
                 if descWord.startswith(text) and worldItems[item].get(TAKEABLE, True):
                     possibleItems.append(descWord)
 
@@ -527,8 +759,123 @@ class TextAdventureCmd(cmd.Cmd):
 
             return list(set(possibleItems))  # make unique list
 
+    class Character:
+        def __init__(self):
+            self.name = ""
+            self.lvl = 1
+            self.hp = 1
+            self.maxHp = 1
+            self.xp = 0
+            self.str = 0
+            self.int = 0
+            self.dex = 0
+            self.dmgRatio = 0.2
+
+        def detectHit(self, enemy):
+            accurate = self.dex * 0.1
+            evasion = enemy.dex * 0.05
+            chance = ((accurate - evasion) / accurate) * 100
+            if chance <= 0: #0% or less chance to hit
+                return False #miss
+            elif random(100) > chance: #random number not in chance
+                return False #miss
+            else: #random number in hit chance
+                return True #hit
+
+        def detectCrit(self):
+            critChance = self.dex * 0.2
+            diceRoll = random(100)
+            if diceRoll > critChance or diceRoll <= 0:
+                return False #no critical hit
+            else:
+                return True #critical hit!
+
+        def doDamage(self, enemy, attackType):
+            if not self.detectHit(enemy):
+                print("{} dodged {}'s attack!"(enemy, self)) #enemy dodged
+
+            else: #if enemy didn't dodge
+                if attackType == "physical":
+                    damage = min((10 * round(self.str * self.dmgRatio)), enemy.hp)  # determine physical damage
+
+                elif attackType == "spell":
+                    min((5 * round(self.int * (self.dmgRatio * 2))), enemy.hp)  # determine spell damage
+
+                hitMessage = ("{} hit {}"(self, enemy))
+
+                if self.detectCrit():
+                    damage = damage * 2 #if attack is a critical hit, double the damage
+                    hitMessage += " hard"
+                enemy.hp = enemy.hp - damage #deal damage to enemy
+                print(hitMessage + "!")
+
+    class Enemy(Character):
+        def __init__(self, Player):
+            self.name = ""
+            self.mainAttack = ""
+            Character.__init__(self)
+            self.lvl = max(Player.lvl - 1, 1)
+            classRoll = random(1,3)
+            enemyClasses = {
+                0 : self.warrior,
+                1 : self.thief,
+                2 : self.mage,
+            }
+            enemyClasses[classRoll]()
+
+        def hpCheck(self, hpMiddle):
+            if self.hp < (Player.maxhp * hpMiddle):
+                self.name += " Skinny"
+            else:
+                self.name += " Fat"
+
+        def warrior(self):
+            self.name = "Strong"
+            self.hp = random(round(Player.maxhp * 0.4), round(Player.maxhp * 0.6)) #hp between 40% & 60% of players
+            self.hpCheck(0.5)
+            self.str = round(self.lvl * 0.8)
+            self.dex = round(self.lvl * 0.2)
+            self.mainAttack = "physical"
+            diceroll = random(1,3)
+            if diceroll == 1:
+                self.name += " Troll"
+            elif diceroll == 2:
+                self.name += " Orc"
+            else:
+                self.name += " Bandit"
+
+        def thief(self):
+            self.name = "Sneaky"
+            self.hp = random(round(Player.maxhp * 0.3), round(Player.maxhp * 0.5))  # hp between 30% & 50% of players
+            self.hpCheck(0.4)
+            self.str = round(self.lvl * 0.3)
+            self.dex = round(self.lvl * 0.7)
+            self.mainAttack = "physical"
+            diceroll = random(1, 3)
+            if diceroll == 1:
+                self.name += " Goblin"
+            elif diceroll == 2:
+                self.name += " Elf"
+            else:
+                self.name += " Bandit"
+
+
+
+    class Player(Character):
+        def __init__(self):
+            Character.__init__(self)
+            self.hp = 90 + (10 * self.lvl)
+            self.maxHp = 90 + (10 * self.lvl)
+
+
+
+
+
+        
+
 
 if __name__ == '__main__':
+
     print('Text Adventure Alpha!')
     print('=====================')
     print()
